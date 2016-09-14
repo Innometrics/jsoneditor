@@ -1,0 +1,17 @@
+{
+    "name": "jsoneditor",
+    "version": "0.0.1",
+    "private": false,
+    "repository": {
+        "url": "https://github.com/Innometrics/jsoneditor"
+    },
+    "scripts": {
+        "build": "gulp build"
+    },
+    "dependencies": {
+        "gulp": "*",
+        "gulp-uglify": "*",
+        "gulp-rename": "*",
+        "gulp-ver": "*"
+    }
+}
