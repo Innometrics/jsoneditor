@@ -7,7 +7,7 @@
     },
     "scripts": {
         "build": "gulp build",
-        "upload": "gulp upload"
+        "upload": "gulp upload2s3"
     },
     "dependencies": {
         "gulp": "*",
