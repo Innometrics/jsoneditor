@@ -30,17 +30,17 @@ var InnoDataConverter = {
         } : {};
     },
 
-    getMacroData: function() {
+    getMacroData: function () {
         return {
-            codenames: ['timestamp_now', 'request_ip', 'user_agent', 'profileId'],
-            display_names: ['Timestamp', 'Request IP', 'User-agent', 'Profile ID']
+            codenames: ['CURRENT_TIMESTAMP', 'REQUEST_IP', 'USER_AGENT'],
+            display_names: ['Timestamp', 'Request IP', 'User-agent']
         };
     },
 
     getMetaData: function () {
         return {
-            codenames: ['company_id', 'bucket_id', 'event_def_id', 'app_section_event', 'collect_app', 'section'],
-            display_names: ['Company ID', 'Bucket ID', 'Event definition ID', 'Event with scope', 'Collect app', 'Section']
+            codenames: ['COMPANY_ID', 'BUCKET_ID', 'SECTION', 'COLLECT_APP'],
+            display_names: ['Company ID', 'Bucket ID', 'Section', 'Collect app']
         };
     },
 
@@ -49,10 +49,10 @@ var InnoDataConverter = {
         return values;
     },
 
-    generateDataValue: function(els) {
+    generateDataValue: function (els) {
         var newEls = {};
         if (els && els instanceof Array) {
-            els.forEach(function(el) {
+            els.forEach(function (el) {
                 var parsed = el.split('/');
 
                 if (!newEls[parsed[0]]) { // app
@@ -72,7 +72,7 @@ var InnoDataConverter = {
 var InnoJSONValidator = {
     map: function (item) {
         var map = {
-            "empty": this.emptyStringOnRequiredFields
+            empty: this.emptyStringOnRequiredFields
         };
 
         return map[item];
@@ -82,8 +82,7 @@ var InnoJSONValidator = {
             validators = (schema && schema.options && schema.options.validators) || [],
             isHided = !!(schema.options && schema.options.hided);
 
-        if (validators && !value && !isHided && !(schema.type === "boolean" && value === false)) {
-
+        if (validators && validators.length && !value && !isHided && !(schema.type === "boolean" && value === false)) {
             errors.push({
                 path: path,
                 property: "value",
@@ -102,6 +101,12 @@ var InnoJSONValidator = {
     }
 };
 
+JSONEditor.AbstractEditor.prototype.getRuleId = function () {
+    var id = this.path.match(/^root\.(\d+)/);
+
+    return id ? id[1] : 0;
+};
+
 var InnoJSONEditor = function (el, params) {
     this._parent = JSONEditor.prototype;
     var customValidators = params.customValidators,
@@ -109,7 +114,7 @@ var InnoJSONEditor = function (el, params) {
 
     delete params.customValidators;
 
-    this.extendedData = params.extendedData || {};
+    this.extendedData = {root: params.extendedData || {}};
 
     JSONEditor.apply(this, arguments);
     this.validator.validate = function () {
@@ -121,10 +126,13 @@ var InnoJSONEditor = function (el, params) {
 };
 
 InnoJSONEditor.constructor = InnoJSONEditor;
-InnoJSONEditor.prototype = Object.assign(Object.create(JSONEditor.prototype),
-{
+InnoJSONEditor.prototype = Object.assign(Object.create(JSONEditor.prototype), {
     attachEvents: function () {
 
+    },
+
+    getRuleId: function (editor) {
+        return editor.getRuleId();
     },
 
     validate: function (node) {
@@ -210,8 +218,8 @@ InnoJSONEditor.prototype = Object.assign(Object.create(JSONEditor.prototype),
     },
 
     trigger: function (event, data) {
-        if(this.callbacks && this.callbacks[event] && this.callbacks[event].length) {
-            for(var i=0; i<this.callbacks[event].length; i++) {
+        if (this.callbacks && this.callbacks[event] && this.callbacks[event].length) {
+            for (var i = 0; i < this.callbacks[event].length; i++) {
                 this.callbacks[event][i](data);
             }
         }
@@ -226,7 +234,7 @@ InnoJSONEditor.prototype = Object.assign(Object.create(JSONEditor.prototype),
 
         var resolvers = JSONEditor.defaults.resolvers;
 
-        for (var i=0, rLen = resolvers.length; i < rLen; i++) {
+        for (var i = 0, rLen = resolvers.length; i < rLen; i++) {
             classname = resolvers[i](schema);
 
             if (classname) {
@@ -237,20 +245,31 @@ InnoJSONEditor.prototype = Object.assign(Object.create(JSONEditor.prototype),
         return InnoJSONEditors[classname] || JSONEditor.defaults.editors[classname];
     },
 
-    updateExtendedData: function (data) {
-        var old;
+    updateExtendedData: function (data, id) {
+        var old,
+            exData = this.getExtendedData(id);
         for (var item in data) {
             if (!data.hasOwnProperty(item)) {
                 continue;
             }
 
-            old = this.extendedData[item];
-            this.extendedData[item] = data[item];
+            old = exData[item];
+            exData[item] = data[item];
 
             if (old !== data[item]) {
                 this.updateExtendedDataEditors(this.editors, item);
             }
         }
+
+        this.setExtendedData(exData, id);
+    },
+
+    getExtendedData: function (id) {
+        return this.extendedData[id] || {};
+    },
+
+    setExtendedData: function (data, id) {
+        this.extendedData[id] = data;
     },
 
     updateExtendedDataEditors: function (list, property) {
@@ -259,10 +278,13 @@ InnoJSONEditor.prototype = Object.assign(Object.create(JSONEditor.prototype),
                 continue;
             }
 
-            var editor = list[one];
+            var editor = list[one],
+                ruleId = this.getRuleId(editor),
+                exData = this.getExtendedData(ruleId),
+                rootData = this.getExtendedData("root");
 
             if (editor.schema && editor.schema.options && editor.schema.options.extended_data_mapping && editor.schema.options.extended_data_mapping === property) {
-                editor.update(this.extendedData[property]);
+                editor.update(exData[property] || rootData[property]);
             }
         }
     },
@@ -312,7 +334,7 @@ InnoJSONEditor.prototype = Object.assign(Object.create(JSONEditor.prototype),
             current = editors[key];
             needToShow = deps[key];
 
-            if (current && current.getValue()) {
+            if (current && (current.getValue() && current.getExtendedValue() !== null)) {
                 isBlank = false;
             }
 
@@ -362,6 +384,24 @@ InnoJSONEditor.prototype = Object.assign(Object.create(JSONEditor.prototype),
                 this.showEditor(current);
             }
         }
+
+        if (editor.parent.editors.fieldSets.container) {
+            var fields = Array.prototype.slice.call(editor.parent.editors.fieldSets.container.querySelectorAll('tbody>tr>td')).filter(function (td) {
+                if (td.dataset.schemapath) {
+                    return td.dataset.schemapath.indexOf('fieldName') > -1;
+                }
+                return;
+            });
+            var settings = editor.getValue();
+            fields.map(function (field) {
+                var name = field.querySelector('input').value;
+                if (settings.type === 'starter') {
+                    field.parentElement.style.display = ['mailHash', 'searchType', 'departure', 'destination', 'homeDate', 'outDate', 'adults', 'children', 'source', 'tripType', 'channel', 'taskId'].indexOf(name) > -1 ? '' : 'none';
+                } else if (settings.type === 'stopper') {
+                    field.parentElement.style.display = ['taskId'].indexOf(name) > -1 ? '' : 'none';
+                }
+            });
+        }
     },
 
     showOnlySpecified: function (editor, dependency) {
@@ -409,40 +449,7 @@ InnoJSONEditor.prototype = Object.assign(Object.create(JSONEditor.prototype),
                 });
             }
         }
-    },/*
-
-    updateEditorOnChange: function (editor, dependency) {
-        // it will works only on select editor.
-        var deps = dependency.conf,
-            editors = editor.editors,
-            self = this,
-            current, key, value, eSchema, eOptions, pos, eds;
-
-        for (key in deps) {
-            if (!deps.hasOwnProperty(key)) {
-                continue;
-            }
-
-            eds = deps[key];
-            current = editors[key];
-            eSchema = current.schema;
-            eOptions = eSchema.options;
-            value = current.getValue();
-
-            if (eSchema["enum"] && eOptions && eOptions.enum_data_properties) {
-                pos = eSchema["enum"].indexOf(value);
-
-                if (pos < 0) {
-                    continue;
-                }
-
-                eds.forEach(function (ed) {
-                    self.updateEditorDataValue(editors[ed], eOptions.enum_data_properties[pos]);
-                });
-            }
-        }
-
-    },*/
+    },
 
     addCustomValidators: function () {
         JSONEditor.defaults.custom_validators = JSONEditor.defaults.custom_validators.concat(InnoJSONValidator.getValidators(this.getValidatorsConfig()));
@@ -452,6 +459,14 @@ InnoJSONEditor.prototype = Object.assign(Object.create(JSONEditor.prototype),
         return [
             'empty'
         ];
+    },
+
+    _getExternalRefs: function (schema) {
+        if (schema === null) {
+            return {};
+        }
+
+        return this._parent._getExternalRefs.call(this, schema);
     }
 });
 
@@ -505,7 +520,7 @@ InnoJSONEditors.object = JSONEditor.defaults.editors.object.extend({
         this.value = {};
         var one;
 
-        for(var i in this.editors) {
+        for (var i in this.editors) {
             if (!this.editors.hasOwnProperty(i)) {
                 continue;
             }
@@ -549,7 +564,7 @@ InnoJSONEditors.table = JSONEditor.defaults.editors.table.extend({
         this._super(value);
 
         if (value && value.options && value.options.readonly && Array.isArray(value.options.readonly)) {
-            var lastRow = this.rows[this.rows.length-1],
+            var lastRow = this.rows[this.rows.length - 1],
                 readonly = value.options.readonly;
 
             if (lastRow) {
@@ -572,9 +587,13 @@ InnoJSONEditors.table = JSONEditor.defaults.editors.table.extend({
     addControls: function () {
         this._super();
         this.remove_all_rows_button.style.display = "none";
-        this.remove_all_rows_button = {"style": {}};
+        this.remove_all_rows_button = {
+            style: {}
+        };
         this.delete_last_row_button.style.display = "none";
-        this.delete_last_row_button = {"style": {}};
+        this.delete_last_row_button = {
+            style: {}
+        };
     },
 
     getValue: function () {
@@ -588,7 +607,9 @@ InnoJSONEditors.select = JSONEditor.defaults.editors.select.extend({
         this._super();
 
         if (this.schema.type === "boolean") {
-            this.enum_options = this.enum_options.map(function(item) { return item === "1" ? "true" : "false"; });
+            this.enum_options = this.enum_options.map(function (item) {
+                return item === "1" ? "true" : "false";
+            });
         }
 
         if (this.enum_values[0] === undefined) {
@@ -618,7 +639,9 @@ InnoJSONEditors.select = JSONEditor.defaults.editors.select.extend({
     },
 
     appendExtendedFields: function (key) {
-        var data = this.jsoneditor.extendedData[key];
+        var exData = this.jsoneditor.getExtendedData(this.getRuleId()),
+            rootData = this.jsoneditor.getExtendedData("root"),
+            data = exData[key] || rootData[key];
 
         if (data) {
             this.enum_display = this.enum_display.concat(data);
@@ -653,7 +676,7 @@ InnoJSONEditors.select = JSONEditor.defaults.editors.select.extend({
             self = this;
 
         errors.forEach(function (error) {
-            if(error.path === self.path) {
+            if (error.path === self.path) {
                 my_errors.push(error);
             }
         });
@@ -696,7 +719,7 @@ InnoJSONEditors.select = JSONEditor.defaults.editors.select.extend({
         this.showValidationErrors(errors);
     },
 
-    setValue: function(value, initial) {
+    setValue: function (value, initial) {
         var changed = this.getValue() !== value;
         this._super(value, initial);
 
@@ -724,7 +747,7 @@ InnoJSONEditors.string = JSONEditor.defaults.editors.string.extend({
             self = this;
 
         errors.forEach(function (error) {
-            if(error.path === self.path) {
+            if (error.path === self.path) {
                 my_errors.push(error);
             }
         });
@@ -767,7 +790,6 @@ InnoJSONEditors.string = JSONEditor.defaults.editors.string.extend({
     },
 
     getValue: function () {
-        //this.refreshValue();
         return this._super();
     }
 });
