@@ -292,6 +292,9 @@ InnoJSONEditor.prototype = Object.assign(Object.create(JSONEditor.prototype), {
     processDependency: function (editor, depConf) {
         if (editor && depConf) {
             switch (depConf.type) {
+                case "show_current_and_hide_others_two":
+                    this.showHideAllEditorsTwo(editor, depConf);
+                    break;
                 case "show_current_and_hide_others":
                     this.showHideAllEditors(editor, depConf);
                     break;
@@ -339,6 +342,54 @@ InnoJSONEditor.prototype = Object.assign(Object.create(JSONEditor.prototype), {
             }
 
             needToShow.forEach(isNeed);
+        }
+    },
+
+    showHideAllEditorsTwo: function (editor, dependency) {
+        var needToShow = [];
+        var deps = dependency.conf;
+        var editors = editor.editors,
+            key, current;
+
+        for (key in deps) {
+            if (!deps.hasOwnProperty(key)) {
+                continue;
+            }
+
+            current = editors[key];
+            if (!current) {
+                continue;
+            }
+
+            var value = current.getValue();
+            var depConf = deps[key][value];
+            var relatedKey = Object.keys(depConf).pop();
+            var relatedEditor = editors[relatedKey];
+            var relatedValue = relatedEditor.getValue();
+
+            needToShow = needToShow.concat(key, relatedKey);
+
+            if (!depConf &&
+                !depConf.hasOwnProperty(relatedKey) &&
+                !depConf[relatedKey].hasOwnProperty(relatedValue) &&
+                !Array.isArray(depConf[relatedKey][relatedValue])) {
+                continue;
+            }
+
+            needToShow = needToShow.concat(depConf[relatedKey][relatedValue]);
+        }
+
+        for (key in editors) {
+            if (!editors.hasOwnProperty(key)) {
+                continue;
+            }
+
+            current = editors[key];
+            if (needToShow.indexOf(key) < 0) {
+                this.hideEditor(current, true);
+            } else {
+                this.showEditor(current);
+            }
         }
     },
 
@@ -587,13 +638,9 @@ InnoJSONEditors.table = JSONEditor.defaults.editors.table.extend({
     addControls: function () {
         this._super();
         this.remove_all_rows_button.style.display = "none";
-        this.remove_all_rows_button = {
-            style: {}
-        };
+        this.remove_all_rows_button = {style: {}};
         this.delete_last_row_button.style.display = "none";
-        this.delete_last_row_button = {
-            style: {}
-        };
+        this.delete_last_row_button = {style: {}};
     },
 
     getValue: function () {
