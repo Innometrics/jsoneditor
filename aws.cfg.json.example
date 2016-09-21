@@ -1,0 +1,6 @@
+{
+    "accessKeyId": "type your key here",
+    "secretAccessKey": "type your secret here",
+    "bucket": "s3 bucket",
+    "path":  "path to entry folder"
+}
