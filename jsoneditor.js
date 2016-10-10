@@ -278,13 +278,15 @@ InnoJSONEditor.prototype = Object.assign(Object.create(JSONEditor.prototype), {
                 continue;
             }
 
-            var editor = list[one],
-                ruleId = this.getRuleId(editor),
-                exData = this.getExtendedData(ruleId),
-                rootData = this.getExtendedData("root");
+            var editor = list[one];
+            if (editor) {
+                var ruleId = this.getRuleId(editor);
+                var exData = this.getExtendedData(ruleId);
+                var rootData = this.getExtendedData("root");
 
-            if (editor.schema && editor.schema.options && editor.schema.options.extended_data_mapping && editor.schema.options.extended_data_mapping === property) {
-                editor.update(exData[property] || rootData[property]);
+                if (editor.schema && editor.schema.options && editor.schema.options.extended_data_mapping && editor.schema.options.extended_data_mapping === property) {
+                    editor.update(exData[property] || rootData[property]);
+                }
             }
         }
     },
