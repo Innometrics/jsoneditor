@@ -9,23 +9,27 @@ const gulp = require("gulp"),
     projectCfg = require("./package.json"),
     aws = require("aws-sdk");
 
+function errorHandler (error) {
+    return console.error(error.message);
+}
+
 gulp.task("build", function () {
     return gulp.src(jsFile)
-            .pipe(filever())
+            .pipe(filever().on('error', errorHandler))
             .pipe(gulp.dest("dist"))
-            .pipe(uglify())
+            .pipe(uglify().on('error', errorHandler))
             .pipe(rename({
                 extname: ".min.js"
-            }))
+            }).on('error', errorHandler))
             .pipe(gulp.dest("dist"));
 });
 
-gulp.task("upload2s3", function (cb) {
+gulp.task("upload2s3", function (callback) {
     var awsConfig;
     try {
         awsConfig = require("./aws.cfg.json");
     } catch (e) {
-        throw new Error("You have incorrect or empty AWS config file. (aws.cfg.json)");
+        return callback("You have incorrect or empty AWS config file. (aws.cfg.json)");
     }
 
     var awsS3 = new aws.S3(awsConfig);
@@ -33,10 +37,10 @@ gulp.task("upload2s3", function (cb) {
     async.each([
         "jsoneditor-" + projectCfg.version + ".js",
         "jsoneditor-" + projectCfg.version + ".min.js"
-    ], function (item, callback) {
+    ], function (item, innerCallback) {
         fs.readFile(__dirname + "/dist/" + item, function (error, buffer) {
             if (error) {
-                throw error;
+                return innerCallback(error);
             }
             let cfg = {
                 Bucket: awsConfig.bucket,
@@ -46,16 +50,20 @@ gulp.task("upload2s3", function (cb) {
                 ContentType: "text/javascript"
             };
 
-            awsS3.putObject(cfg, function (error, response) {
+            awsS3.putObject(cfg, function (error) {
                 if (error) {
-                    throw error;
+                    return innerCallback(error);
                 }
 
-                callback();
+                innerCallback();
             });
         });
-    }, function (err) {
+    }, function (error) {
+        if (error) {
+            return callback(error);
+        }
+
         console.log("All files uloaded");
-        cb();
+        return callback();
     });
 });

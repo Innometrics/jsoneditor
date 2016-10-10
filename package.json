@@ -9,12 +9,12 @@
         "build": "gulp build",
         "upload": "gulp upload2s3"
     },
-    "dependencies": {
-        "gulp": "*",
-        "gulp-uglify": "*",
-        "gulp-rename": "*",
-        "gulp-ver": "*",
-        "async": "*",
-        "aws-sdk": "*"
+    "devDependencies": {
+        "gulp": "^3.9.1",
+        "gulp-uglify": "^2.0.0",
+        "gulp-rename": "^1.2.2",
+        "gulp-ver": "^0.1.0",
+        "async": "^2.0.1",
+        "aws-sdk": "^2.6.7"
     }
 }
